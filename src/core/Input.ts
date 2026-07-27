@@ -4,6 +4,7 @@
  */
 type PointerCb = (x: number, y: number) => void;
 type SimpleCb = () => void;
+type KeyCb = (key: string) => void;
 
 export class Input {
   private keys = new Set<string>();
@@ -17,11 +18,14 @@ export class Input {
   private rightDownCbs: PointerCb[] = [];
   private moveCbs: PointerCb[] = [];
   private cancelCbs: SimpleCb[] = [];
+  private keyCbs: KeyCb[] = [];
 
   constructor(canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') this.cancelCbs.forEach((cb) => cb());
-      this.keys.add(e.key.toLowerCase());
+      const key = e.key.toLowerCase();
+      if (!e.repeat) this.keyCbs.forEach((cb) => cb(key));
+      this.keys.add(key);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
     window.addEventListener('blur', () => this.keys.clear());
@@ -32,8 +36,13 @@ export class Input {
       if (e.button === 0) this.leftDownCbs.forEach((cb) => cb(e.offsetX, e.offsetY));
       if (e.button === 2) this.rightDownCbs.forEach((cb) => cb(e.offsetX, e.offsetY));
     });
-    canvas.addEventListener('pointerup', (e) => {
-      if (e.button === 0) this.leftUpCbs.forEach((cb) => cb(e.offsetX, e.offsetY));
+    // Listen on the window so a drag released over the HUD bars still completes.
+    // For the full-window canvas this matches the offsetX/offsetY the down and
+    // move handlers use.
+    window.addEventListener('pointerup', (e) => {
+      if (e.button !== 0) return;
+      const rect = canvas.getBoundingClientRect();
+      this.leftUpCbs.forEach((cb) => cb(e.clientX - rect.left, e.clientY - rect.top));
     });
     canvas.addEventListener('pointermove', (e) => {
       this.pointerX = e.offsetX;
@@ -74,6 +83,9 @@ export class Input {
     this.wheelAccum = 0;
     return v;
   }
+
+  /** Fires once per physical key press (no auto-repeat), key already lowercased. */
+  onKeyPress(cb: KeyCb): void { this.keyCbs.push(cb); }
 
   onLeftDown(cb: PointerCb): void { this.leftDownCbs.push(cb); }
   onLeftUp(cb: PointerCb): void { this.leftUpCbs.push(cb); }

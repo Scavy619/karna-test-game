@@ -31,6 +31,10 @@ export interface BuildingDef {
   cost: Cost;
   buildSeconds: number;
   requiresAge?: number; // minimum age to build (default 1)
+  /** Drag-placed in a continuous line (walls). Segment spacing below. */
+  chainable?: boolean;
+  /** Distance between chained segments; the visual is ~3.6 wide, so this overlaps slightly. */
+  chainSpacing?: number;
 }
 
 export const BUILDING_DEFS: Record<BuildingKey, BuildingDef> = {
@@ -41,7 +45,7 @@ export const BUILDING_DEFS: Record<BuildingKey, BuildingDef> = {
   fishingDock: { key: 'fishingDock', name: 'Fishing Dock',  icon: '🎣', hp: 220, footprint: 3.0, cost: { wood: 80 }, buildSeconds: 10 },
   warStable:   { key: 'warStable',   name: 'War Stable',    icon: '🐎', hp: 420, footprint: 4.2, cost: { wood: 120, gold: 60 }, buildSeconds: 16, requiresAge: 2 },
   temple:      { key: 'temple',      name: 'Temple',        icon: '🛕', hp: 380, footprint: 3.8, cost: { stone: 100, gold: 80 }, buildSeconds: 16 },
-  wall:        { key: 'wall',        name: 'Stone Wall',    icon: '🧱', hp: 500, footprint: 2.0, cost: { stone: 20 }, buildSeconds: 4 },
+  wall:        { key: 'wall',        name: 'Stone Wall',    icon: '🧱', hp: 500, footprint: 2.0, cost: { stone: 20 }, buildSeconds: 4, chainable: true, chainSpacing: 3.3 },
   gate:        { key: 'gate',        name: 'Gate',          icon: '🚪', hp: 450, footprint: 2.2, cost: { stone: 40, wood: 20 }, buildSeconds: 6 },
   watchtower:  { key: 'watchtower',  name: 'Watchtower',    icon: '🗼', hp: 450, footprint: 2.0, cost: { stone: 80, wood: 40 }, buildSeconds: 12 },
   enemyTotem:  { key: 'enemyTotem',  name: 'Dark Totem',    icon: '🗿', hp: 550, footprint: 3.0, cost: {}, buildSeconds: 1 },
@@ -49,6 +53,9 @@ export const BUILDING_DEFS: Record<BuildingKey, BuildingDef> = {
 
 /** Defensive structures may be chained close together (wall lines). */
 export const COMPACT_KEYS: BuildingKey[] = ['wall', 'gate', 'watchtower'];
+
+/** Minimum spacing between two chained defensive pieces. */
+export const COMPACT_MIN_DIST = 1.6;
 
 export interface QueueItem {
   label: string;
@@ -94,7 +101,8 @@ export class Building implements Damageable {
     key: BuildingKey,
     pos: BABYLON.Vector3,
     team: Team,
-    completed: boolean
+    completed: boolean,
+    yaw = 0
   ) {
     this.scene = scene;
     this.def = BUILDING_DEFS[key];
@@ -107,6 +115,7 @@ export class Building implements Damageable {
 
     this.root = new BABYLON.TransformNode('bld_' + key, scene);
     this.root.position.set(pos.x, world.getHeight(pos.x, pos.z), pos.z);
+    this.root.rotation.y = yaw;
 
     this.buildVisual(key);
     for (const m of this.meshes) world.addShadowCaster(m);

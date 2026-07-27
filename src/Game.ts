@@ -7,12 +7,12 @@ import { ResourceNode } from './world/ResourceNode';
 import { CampaignMap } from './ui/CampaignMap';
 import { Minion } from './entities/Minion';
 import { Warrior } from './entities/Warrior';
-import { Building, BuildingKey, BUILDING_DEFS, COMPACT_KEYS, Cost } from './buildings/Building';
+import { Building, BuildingKey, BUILDING_DEFS, COMPACT_KEYS, COMPACT_MIN_DIST, Cost } from './buildings/Building';
 import { SelectionSystem } from './systems/Selection';
 import { StorySystem } from './systems/Story';
 import { FX } from './systems/Effects';
 import { Sfx } from './systems/Sound';
-import { HUD } from './ui/HUD';
+import { HUD, costLabel } from './ui/HUD';
 import { pastel } from './core/Materials';
 
 export type TechKey = 'sharpAxes' | 'ironBlades' | 'warBanners' | 'suryapuja' | 'festival' | 'silkRoute';
@@ -39,6 +39,15 @@ const TECHS: Record<TechKey, TechDef> = {
 const AGE_UP_COST: Cost = { wood: 200, stone: 100, gold: 150 };
 const ENEMY_SPAWN_INTERVAL = 30;
 const MAX_ENEMIES = 8;
+/** Cap on one drag-built wall line, so a wild drag can't spawn hundreds. */
+const MAX_CHAIN_SEGMENTS = 40;
+
+/** One planned piece of a dragged wall line. */
+export interface ChainSegment {
+  pos: BABYLON.Vector3;
+  yaw: number;
+  valid: boolean;
+}
 
 /**
  * Level 1 — Anga, land of Karna. Build the economy (wood/stone/gold/food),
@@ -120,6 +129,11 @@ export class Game {
     this.campaign.show();
     document.getElementById('mapBtn')?.addEventListener('click', () => this.campaign.show());
 
+    // Digit hotkeys drive the build palette
+    this.input.onKeyPress((key) => {
+      if (key >= '1' && key <= '9') this.hud.pressHotkey(key);
+    });
+
     window.addEventListener('resize', () => this.engine.resize());
     (window as unknown as { game: Game }).game = this;
   }
@@ -150,6 +164,16 @@ export class Game {
            (this.resources.stone >= (cost.stone ?? 0)) &&
            (this.resources.gold >= (cost.gold ?? 0)) &&
            (this.resources.food >= (cost.food ?? 0));
+  }
+
+  /** How many copies of `cost` the treasury can pay for right now. */
+  affordableCount(cost: Cost): number {
+    let n = Infinity;
+    for (const k of ['wood', 'stone', 'gold', 'food'] as const) {
+      const c = cost[k] ?? 0;
+      if (c > 0) n = Math.min(n, Math.floor(this.resources[k] / c));
+    }
+    return n === Infinity ? MAX_CHAIN_SEGMENTS : n;
   }
 
   private deduct(cost: Cost): boolean {
@@ -198,7 +222,7 @@ export class Game {
       if (!b.alive) continue;
       // Wall/gate/tower chains may sit nearly touching to form a line
       const chained = COMPACT_KEYS.includes(key) && COMPACT_KEYS.includes(b.def.key);
-      const minDist = chained ? 2.8 : def.footprint + b.def.footprint + 1.5;
+      const minDist = chained ? COMPACT_MIN_DIST : def.footprint + b.def.footprint + 1.5;
       if (BABYLON.Vector3.Distance(pos, b.position) < minDist) return false;
     }
     for (const n of this.nodes) {
@@ -217,6 +241,81 @@ export class Game {
     const selMinions = this.selection.selected.filter((s): s is Minion => s instanceof Minion);
     const builders = selMinions.length > 0 ? selMinions : this.nearestMinions(pos, 2);
     builders.forEach((m) => m.commandBuild(b));
+  }
+
+  /**
+   * Lays out a wall line from `start` to `end`: evenly spaced segments, all
+   * rotated to face along the line, each flagged with whether it may be built.
+   * Used both for the drag preview and for the actual placement.
+   */
+  planChain(key: BuildingKey, start: BABYLON.Vector3, end: BABYLON.Vector3): ChainSegment[] {
+    const def = BUILDING_DEFS[key];
+    const spacing = def.chainSpacing ?? 3.3;
+    const dir = new BABYLON.Vector3(end.x - start.x, 0, end.z - start.z);
+    const len = dir.length();
+    // A rotation of `yaw` about Y sends local +X to (cos yaw, 0, -sin yaw)
+    const yaw = len > 0.001 ? Math.atan2(-dir.z, dir.x) : 0;
+
+    // Too short to be a line — a single segment, as if simply clicked
+    if (len < spacing * 0.6) {
+      return [{ pos: start.clone(), yaw, valid: this.isPlacementValid(key, start) }];
+    }
+
+    let gaps = Math.max(1, Math.round(len / spacing));
+    // Rounding down must never leave a visible hole between segments
+    if (len / gaps > spacing * 1.09) gaps = Math.ceil(len / spacing);
+    gaps = Math.min(gaps, MAX_CHAIN_SEGMENTS - 1);
+
+    const step = dir.scale(1 / gaps);
+    const out: ChainSegment[] = [];
+    for (let i = 0; i <= gaps; i++) {
+      const pos = start.add(step.scale(i));
+      out.push({ pos, yaw, valid: this.isPlacementValid(key, pos) });
+    }
+    return out;
+  }
+
+  /** Builds every valid, affordable segment of a planned wall line. */
+  placeChain(key: BuildingKey, plan: ChainSegment[]): void {
+    const def = BUILDING_DEFS[key];
+    const built: Building[] = [];
+    let brokeOnCost = false;
+
+    for (const seg of plan) {
+      if (!seg.valid) continue;
+      if (!this.canAfford(def.cost)) { brokeOnCost = true; break; }
+      this.deduct(def.cost);
+      const b = new Building(this.scene, this.world, key, seg.pos, 'player', false, seg.yaw);
+      this.buildings.push(b);
+      built.push(b);
+    }
+
+    if (built.length === 0) {
+      this.toast(brokeOnCost ? 'Not enough resources! ❌' : 'Cannot build there ❌');
+      return;
+    }
+
+    Sfx.play('build');
+    const n = built.length;
+    const total: Cost = {
+      wood: (def.cost.wood ?? 0) * n || undefined,
+      stone: (def.cost.stone ?? 0) * n || undefined,
+      gold: (def.cost.gold ?? 0) * n || undefined,
+      food: (def.cost.food ?? 0) * n || undefined,
+    };
+    this.toast(n === 1
+      ? `${def.icon} ${def.name} site placed`
+      : `${def.icon} Wall line laid — ${n} segments (${costLabel(total)})`);
+    if (brokeOnCost) this.toast('Ran out of stone — the line stops short 🪨');
+
+    // Spread the crew along the line so it rises evenly
+    const selMinions = this.selection.selected.filter((s): s is Minion => s instanceof Minion);
+    const mid = built[Math.floor(built.length / 2)].position;
+    const crew = selMinions.length > 0 ? selMinions : this.nearestMinions(mid, Math.min(4, n));
+    crew.forEach((m, i) => {
+      const target = built[Math.min(n - 1, Math.floor((i * n) / Math.max(1, crew.length)))];
+      m.commandBuild(target);
+    });
   }
 
   /** Farms/docks produce a linked harvestable node when they finish. */

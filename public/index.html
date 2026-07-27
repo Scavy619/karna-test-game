@@ -5,76 +5,359 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Legacy of Anga</title>
   <style>
+    :root {
+      --bar-bg: linear-gradient(180deg, rgba(74,57,39,0.97) 0%, rgba(46,34,23,0.98) 100%);
+      --bar-bg-up: linear-gradient(0deg, rgba(74,57,39,0.97) 0%, rgba(46,34,23,0.98) 100%);
+      --gold: #d9b56d;
+      --gold-dim: rgba(217, 181, 109, 0.30);
+      --gold-line: rgba(217, 181, 109, 0.55);
+      --ink: #f4e6c6;
+      --ink-dim: rgba(244, 230, 198, 0.62);
+      --tile-face: linear-gradient(180deg, #faeed2 0%, #e5cb9c 100%);
+      --tile-face-hot: linear-gradient(180deg, #fff9e6 0%, #f0dcb2 100%);
+      --tile-edge: #8d6c3e;
+      --tile-ink: #46341c;
+      --parchment: linear-gradient(180deg, rgba(255,250,238,0.97), rgba(246,235,213,0.97));
+    }
+
     html, body {
       margin: 0; padding: 0; width: 100%; height: 100%;
       overflow: hidden;
-      font-family: 'Segoe UI', 'Comic Sans MS', Arial, sans-serif;
+      font-family: 'Segoe UI', 'Trebuchet MS', Arial, sans-serif;
     }
     #canvas { width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
 
     #hud { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+
     .panel {
-      background: rgba(255, 250, 240, 0.93);
-      border: 2px solid rgba(160, 130, 90, 0.4);
-      border-radius: 14px;
-      box-shadow: 0 3px 12px rgba(80, 60, 30, 0.18);
+      background: var(--parchment);
+      border: 2px solid rgba(141, 108, 62, 0.55);
+      border-radius: 12px;
+      box-shadow: 0 3px 14px rgba(30, 20, 10, 0.3);
       color: #5a4634;
       pointer-events: auto;
     }
 
+    /* ══════════ TOP EDGE: banner + resources ══════════ */
+
     #topbar {
-      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-      display: flex; gap: 12px; align-items: center;
-      padding: 8px 16px; font-size: 15px; font-weight: 600;
-      white-space: nowrap;
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 52px; box-sizing: border-box;
+      display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+      gap: 14px; padding: 0 14px;
+      background: var(--bar-bg);
+      border-bottom: 2px solid var(--gold-line);
+      box-shadow: 0 3px 14px rgba(0, 0, 0, 0.35), inset 0 -1px 0 rgba(255, 235, 190, 0.14);
+      color: var(--ink);
+      pointer-events: auto; z-index: 12;
     }
-    .chip { display: flex; gap: 5px; align-items: center; }
-    .divider { opacity: 0.3; }
-    #ageLabel { font-size: 13px; }
-    #objective { font-size: 13px; opacity: 0.85; font-weight: 500; }
+
+    .tbLeft { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .crest {
+      font-size: 20px; line-height: 1;
+      width: 34px; height: 34px; flex: none;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid var(--gold-line); border-radius: 9px;
+      background: radial-gradient(circle at 35% 25%, rgba(217,181,109,0.35), rgba(0,0,0,0.25));
+    }
+    .titleBlock { min-width: 0; }
+    .gameTitle {
+      font-size: 15px; font-weight: 700; letter-spacing: 0.4px;
+      color: var(--gold); white-space: nowrap;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+    }
+    .levelSub {
+      font-size: 11px; color: var(--ink-dim); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .tbCenter { display: flex; justify-content: center; }
+    .resStrip {
+      display: flex; align-items: center; gap: 4px;
+      padding: 4px 6px; border-radius: 10px;
+      background: rgba(0, 0, 0, 0.26);
+      border: 1px solid var(--gold-dim);
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.35);
+    }
+    .res {
+      display: flex; align-items: center; gap: 5px;
+      padding: 2px 9px; border-radius: 7px;
+      font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums;
+      color: var(--ink); white-space: nowrap;
+    }
+    .res i { font-style: normal; font-size: 15px; }
+    .res b { min-width: 30px; text-align: right; font-weight: 700; }
+    .res.pop b { min-width: 20px; }
+    .resSep { width: 1px; height: 20px; background: var(--gold-dim); margin: 0 3px; }
+
+    .tbRight { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+    .badge {
+      font-size: 12px; font-weight: 600; white-space: nowrap;
+      padding: 4px 10px; border-radius: 20px;
+      background: rgba(0, 0, 0, 0.26);
+      border: 1px solid var(--gold-dim);
+      color: var(--ink);
+    }
+    #ageLabel { color: var(--gold); }
+    #objective {
+      overflow: hidden; text-overflow: ellipsis; max-width: 30vw;
+      font-weight: 500; color: var(--ink-dim);
+    }
+    .iconBtn {
+      font-size: 16px; line-height: 1; flex: none;
+      width: 32px; height: 32px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--ink); font-family: inherit;
+      background: rgba(0, 0, 0, 0.26);
+      border: 1px solid var(--gold-line); border-radius: 9px;
+      transition: transform 0.08s, background 0.12s;
+    }
+    .iconBtn:hover { background: rgba(217, 181, 109, 0.28); transform: translateY(-1px); }
+
+    /* ══════════ Toasts ══════════ */
 
     #messages {
-      position: absolute; top: 64px; left: 50%; transform: translateX(-50%);
+      position: absolute; top: 62px; left: 50%; transform: translateX(-50%);
       display: flex; flex-direction: column; gap: 6px; align-items: center;
-      pointer-events: none;
+      pointer-events: none; z-index: 11;
     }
     .toast {
-      background: rgba(90, 70, 52, 0.92); color: #fff6e6;
-      padding: 7px 16px; border-radius: 20px; font-size: 14px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      background: rgba(46, 34, 23, 0.94); color: var(--ink);
+      padding: 7px 16px; border-radius: 20px; font-size: 13.5px;
+      border: 1px solid var(--gold-dim);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
       transition: opacity 0.6s;
     }
     .toast.fade { opacity: 0; }
 
-    #selectionPanel {
-      position: absolute; bottom: 14px; left: 14px;
-      min-width: 250px; max-width: 330px;
-      padding: 12px 16px; display: none;
-      max-height: 55vh; overflow-y: auto;
-    }
-    .selTitle { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-    .hint { font-size: 13px; opacity: 0.85; margin: 4px 0; }
-    .techDone { font-size: 13px; margin: 5px 0; color: #4a7a44; font-weight: 600; }
+    /* ══════════ Controls card (top-left, toggleable) ══════════ */
 
-    #buildPanel {
-      position: absolute; bottom: 14px; right: 14px;
-      padding: 12px 14px; width: 320px;
+    #helpCard {
+      position: absolute; top: 62px; left: 12px;
+      padding: 9px 13px 10px; font-size: 12px; line-height: 1.75;
+      max-width: 250px;
     }
-    #buildPanel .selTitle { font-size: 14px; text-align: right; }
-    #buildGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    #helpCard .helpHead {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; font-weight: 700; font-size: 12px;
+      letter-spacing: 0.6px; text-transform: uppercase;
+      color: #8a6a3c; margin-bottom: 3px;
+    }
+    #helpClose {
+      border: none; background: none; cursor: pointer;
+      font-size: 13px; color: #8a6a3c; padding: 0 2px; font-family: inherit;
+    }
+    kbd {
+      background: rgba(141, 108, 62, 0.16);
+      border: 1px solid rgba(141, 108, 62, 0.45);
+      border-bottom-width: 2px;
+      border-radius: 4px; padding: 0 4px;
+      font-family: inherit; font-size: 11px; font-weight: 600;
+    }
 
+    /* ══════════ Placement banner ══════════ */
+
+    #placeBanner {
+      position: absolute; left: 50%; bottom: 152px; transform: translateX(-50%);
+      display: none; align-items: center; gap: 10px;
+      padding: 8px 16px; border-radius: 22px;
+      background: rgba(46, 34, 23, 0.94);
+      border: 1px solid var(--gold-line);
+      box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4);
+      color: var(--ink); font-size: 13px; white-space: nowrap;
+      pointer-events: none; z-index: 11;
+    }
+    #placeBanner.on { display: flex; }
+    #placeBanner .pbMain { font-weight: 700; color: var(--gold); }
+    #placeBanner .pbHint { color: var(--ink-dim); font-size: 12px; }
+    #placeBanner.bad .pbMain { color: #f09a86; }
+
+    /* ══════════ BOTTOM EDGE: command bar ══════════ */
+
+    #cmdbar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      box-sizing: border-box; min-height: 136px;
+      display: grid; grid-template-columns: 268px minmax(0, 1fr) auto;
+      background: var(--bar-bg-up);
+      border-top: 2px solid var(--gold-line);
+      box-shadow: 0 -3px 16px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 235, 190, 0.14);
+      color: var(--ink);
+      pointer-events: auto; z-index: 12;
+    }
+    .cmdZone {
+      box-sizing: border-box; padding: 8px 12px 10px;
+      border-left: 1px solid var(--gold-dim);
+      min-width: 0; display: flex; flex-direction: column;
+    }
+    .cmdZone:first-child { border-left: none; }
+    .zoneLabel {
+      font-size: 10px; font-weight: 700; letter-spacing: 1.3px;
+      text-transform: uppercase; color: var(--gold);
+      opacity: 0.85; margin-bottom: 7px; flex: none;
+    }
+
+    /* ── Selection zone ── */
+
+    #selBody { flex: 1; min-height: 0; overflow: hidden; }
+    .selEmpty { font-size: 12.5px; color: var(--ink-dim); line-height: 1.6; }
+    .selHead { display: flex; gap: 10px; align-items: flex-start; }
+    .portrait {
+      width: 56px; height: 56px; flex: none;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 30px; line-height: 1;
+      border: 2px solid var(--gold-line); border-radius: 11px;
+      background: radial-gradient(circle at 35% 22%, rgba(217,181,109,0.32), rgba(0,0,0,0.3));
+      box-shadow: inset 0 1px 4px rgba(0,0,0,0.4);
+    }
+    .selMeta { min-width: 0; flex: 1; }
+    .selName {
+      font-size: 14px; font-weight: 700; color: var(--ink);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .selSub { font-size: 11.5px; color: var(--ink-dim); margin-top: 1px; }
+    .bar {
+      height: 8px; margin-top: 5px; border-radius: 5px; overflow: hidden;
+      background: rgba(0, 0, 0, 0.42);
+      border: 1px solid var(--gold-dim);
+    }
+    .bar > span { display: block; height: 100%; transition: width 0.2s; }
+    .bar.hp > span { background: linear-gradient(90deg, #6fb84e, #a5d566); }
+    .bar.hp.low > span { background: linear-gradient(90deg, #c0532f, #e0894a); }
+    .bar.build > span { background: linear-gradient(90deg, #c99a3f, #efd07a); }
+    .bar.queue > span { background: linear-gradient(90deg, #5d8fc4, #8fc0e8); }
+    .barLabel {
+      display: flex; justify-content: space-between; gap: 8px;
+      font-size: 11px; color: var(--ink-dim); margin-top: 4px;
+    }
+    .compRow { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+    .compChip {
+      font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 12px;
+      background: rgba(0, 0, 0, 0.28); border: 1px solid var(--gold-dim);
+      white-space: nowrap;
+    }
+    .selNote { font-size: 11.5px; color: var(--ink-dim); margin-top: 7px; line-height: 1.5; }
+
+    /* ── Orders zone ── */
+
+    #actionGrid {
+      flex: 1; min-height: 0;
+      display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px;
+      overflow-y: auto; overflow-x: hidden;
+    }
+    #actionGrid .ordersEmpty { font-size: 12.5px; color: var(--ink-dim); line-height: 1.6; }
+    #actionGrid .techDone {
+      font-size: 12px; font-weight: 600; color: #a8d17f;
+      padding: 5px 10px; border-radius: 8px; white-space: nowrap;
+      background: rgba(120, 170, 90, 0.14); border: 1px solid rgba(150, 200, 120, 0.35);
+      align-self: flex-start;
+    }
+
+    /* ── Build zone ── */
+
+    #buildGroups { display: flex; gap: 14px; align-items: flex-start; flex: 1; }
+    .buildGroup { display: flex; flex-direction: column; gap: 5px; }
+    .groupLabel {
+      font-size: 9.5px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--ink-dim); text-align: center;
+    }
+    .groupTiles { display: flex; gap: 5px; }
+
+    /* ══════════ Tiles ══════════ */
+
+    .tile {
+      position: relative; flex: none;
+      width: 56px; height: 56px; padding: 0; cursor: pointer;
+      font-family: inherit; color: var(--tile-ink);
+      background: var(--tile-face);
+      border: 2px solid var(--tile-edge);
+      border-radius: 10px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 5px rgba(0, 0, 0, 0.3);
+      transition: transform 0.08s, box-shadow 0.1s, background 0.1s;
+    }
+    .tile .tileIcon {
+      display: flex; align-items: center; justify-content: center;
+      height: 100%; font-size: 25px; line-height: 1;
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.22));
+    }
+    .tile .tileKey {
+      position: absolute; right: 2px; bottom: 1px;
+      font-size: 9.5px; font-weight: 700; color: rgba(70, 52, 28, 0.65);
+    }
+    .tile .tileLock {
+      position: absolute; left: 2px; top: 1px; font-size: 11px;
+      filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.5));
+    }
+    .tile:hover:not(:disabled) {
+      background: var(--tile-face-hot);
+      transform: translateY(-2px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 4px 12px rgba(0,0,0,0.4), 0 0 0 1px var(--gold);
+    }
+    .tile:active:not(:disabled) { transform: translateY(0); }
+    .tile:disabled { cursor: not-allowed; filter: saturate(0.35) brightness(0.82); opacity: 0.6; }
+
+    /* Wider tiles for orders (icon + label + cost) */
+    .tile.wide {
+      width: auto; min-width: 128px; max-width: 190px; height: 56px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 11px 0 9px; text-align: left;
+    }
+    .tile.wide .tileIcon { height: auto; font-size: 21px; flex: none; }
+    .tile.wide .tileText { min-width: 0; }
+    .tile.wide .tileName {
+      font-size: 12.5px; font-weight: 700; line-height: 1.25;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .tile.wide .tileCost {
+      font-size: 11px; font-weight: 600; opacity: 0.78;
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .tile.wide .tileKey { position: static; margin-left: auto; opacity: 0.7; }
+
+    /* Tooltip */
+    .tileTip {
+      position: absolute; bottom: calc(100% + 9px); left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      display: block; width: max-content; max-width: 230px;
+      padding: 8px 11px; border-radius: 10px; text-align: left;
+      background: rgba(38, 28, 18, 0.97);
+      border: 1px solid var(--gold-line);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      color: var(--ink); font-weight: 400;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.12s, transform 0.12s;
+      z-index: 5;
+    }
+    .tile:hover .tileTip { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .tileTip::after {
+      content: ''; position: absolute; top: 100%; left: 50%;
+      margin-left: -5px; border: 5px solid transparent;
+      border-top-color: var(--gold-line);
+    }
+    .tileTip .tipName { display: block; font-size: 13px; font-weight: 700; color: var(--gold); }
+    .tileTip .tipCost {
+      display: block; font-size: 12px; font-weight: 600; margin-top: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+    .tileTip .tipDesc { display: block; font-size: 11.5px; line-height: 1.5; margin-top: 4px; color: var(--ink-dim); }
+    .tileTip .tipWarn { display: block; font-size: 11.5px; margin-top: 4px; color: #efb56a; font-weight: 600; }
+    .tileTip .tipKey { display: block; font-size: 11px; margin-top: 5px; color: var(--ink-dim); }
+    /* Tips near the right edge flip their anchor so they stay on screen */
+    .buildGroup:last-child .groupTiles .tile:nth-last-child(-n+2) .tileTip { left: auto; right: -4px; transform: translateX(0) translateY(4px); }
+    .buildGroup:last-child .groupTiles .tile:nth-last-child(-n+2):hover .tileTip { transform: translateX(0) translateY(0); }
+    .buildGroup:last-child .groupTiles .tile:nth-last-child(-n+2) .tileTip::after { left: auto; right: 22px; }
+
+    /* Legacy button style — story modal, campaign map */
     .hudBtn {
       display: block; width: 100%; margin: 6px 0;
-      padding: 8px 10px; font-size: 13px; font-weight: 600;
-      font-family: inherit; color: #5a4634;
-      background: linear-gradient(#fdf3dd, #f5e3c0);
-      border: 2px solid rgba(160, 130, 90, 0.5);
+      padding: 9px 12px; font-size: 13px; font-weight: 600;
+      font-family: inherit; color: var(--tile-ink);
+      background: var(--tile-face);
+      border: 2px solid var(--tile-edge);
       border-radius: 10px; cursor: pointer;
       transition: transform 0.08s, box-shadow 0.08s;
       text-align: left;
     }
-    #buildGrid .hudBtn { margin: 0; }
-    .hudBtn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(80,60,30,0.2); }
+    .hudBtn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.3); }
     .hudBtn:disabled { opacity: 0.45; cursor: not-allowed; }
     .cost { display: block; opacity: 0.75; font-size: 11px; font-weight: 500; }
     .desc { display: block; font-size: 11px; opacity: 0.7; font-weight: 400; }
@@ -86,19 +369,20 @@
       border-radius: 4px; pointer-events: none;
     }
 
-    /* Story modal */
+    /* ══════════ Story modal ══════════ */
+
     #storyModal {
       position: absolute; inset: 0; display: none;
       align-items: center; justify-content: center;
-      background: rgba(40, 30, 20, 0.35);
-      pointer-events: auto;
+      background: rgba(40, 30, 20, 0.4);
+      pointer-events: auto; z-index: 22;
     }
     #storyCard {
-      background: linear-gradient(rgba(255,250,238,0.98), rgba(250,240,220,0.98));
-      border: 3px solid rgba(180, 140, 70, 0.6);
+      background: var(--parchment);
+      border: 3px solid rgba(180, 140, 70, 0.65);
       border-radius: 18px; padding: 26px 32px;
       max-width: 480px; text-align: center;
-      color: #5a4634; box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+      color: #5a4634; box-shadow: 0 8px 30px rgba(0,0,0,0.4);
     }
     #storyIcon { font-size: 42px; }
     #storyTitle { font-size: 24px; font-weight: 700; margin: 6px 0 10px; }
@@ -108,13 +392,14 @@
     .overlay {
       position: absolute; inset: 0; display: none;
       align-items: center; justify-content: center;
-      background: rgba(40, 30, 20, 0.45);
-      pointer-events: auto;
+      background: rgba(40, 30, 20, 0.5);
+      pointer-events: auto; z-index: 24;
     }
     .overlayCard {
-      background: rgba(255, 250, 240, 0.97);
+      background: var(--parchment);
+      border: 3px solid rgba(180, 140, 70, 0.6);
       border-radius: 20px; padding: 36px 48px; text-align: center;
-      color: #5a4634; box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+      color: #5a4634; box-shadow: 0 8px 30px rgba(0,0,0,0.35);
       max-width: 440px;
     }
     .overlayCard h1 { margin: 0 0 10px; font-size: 34px; }
@@ -126,31 +411,21 @@
     }
     .overlayCard button:hover { background: #689f3a; }
 
-    #help {
-      position: absolute; top: 10px; left: 14px;
-      padding: 8px 14px; font-size: 12px; line-height: 1.7; opacity: 0.92;
-    }
-    #mapBtn {
-      font-size: 18px; padding: 2px 8px; cursor: pointer;
-      background: linear-gradient(#fdf3dd, #f5e3c0);
-      border: 2px solid rgba(160, 130, 90, 0.5); border-radius: 8px;
-    }
-    #mapBtn:hover { transform: translateY(-1px); }
+    /* ══════════ Campaign map ══════════ */
 
-    /* Campaign map */
     #campaignMap {
       position: absolute; inset: 0; display: none;
       align-items: center; justify-content: center;
-      background: rgba(30, 24, 16, 0.55);
+      background: rgba(30, 24, 16, 0.6);
       pointer-events: auto; z-index: 20;
     }
     #mapCard {
-      background: linear-gradient(rgba(255,250,238,0.98), rgba(248,238,215,0.98));
-      border: 3px solid rgba(180, 140, 70, 0.6);
+      background: var(--parchment);
+      border: 3px solid rgba(180, 140, 70, 0.65);
       border-radius: 18px; padding: 16px 22px;
       width: min(560px, 92vw); max-height: 94vh;
       display: flex; flex-direction: column;
-      color: #5a4634; box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      color: #5a4634; box-shadow: 0 8px 30px rgba(0,0,0,0.45);
     }
     #mapTitle { font-size: 20px; font-weight: 700; text-align: center; }
     #mapLegend { display: flex; gap: 12px; justify-content: center; margin: 6px 0; font-size: 12px; }
@@ -168,56 +443,88 @@
     #mapInfo { font-size: 13px; text-align: center; margin: 8px 0 2px; min-height: 32px; font-style: italic; }
     #mapButtons { display: flex; gap: 8px; justify-content: center; }
     #mapButtons .hudBtn { max-width: 320px; }
-    kbd {
-      background: rgba(160, 130, 90, 0.18); border: 1px solid rgba(160, 130, 90, 0.4);
-      border-radius: 4px; padding: 0 4px; font-family: inherit;
+
+    /* ══════════ Compact screens ══════════ */
+
+    @media (max-width: 1180px) {
+      #cmdbar { grid-template-columns: 216px minmax(0, 1fr) auto; }
+      .tile { width: 48px; height: 48px; }
+      .tile .tileIcon { font-size: 21px; }
+      .tile.wide { min-width: 112px; height: 48px; }
+      #buildGroups { gap: 9px; }
+      .portrait { width: 46px; height: 46px; font-size: 24px; }
+      #objective { display: none; }
+    }
+    @media (max-width: 900px) {
+      .zoneLabel { display: none; }
+      .levelSub { display: none; }
+      #cmdbar { grid-template-columns: 176px minmax(0, 1fr) auto; min-height: 118px; }
+      #buildGroups { flex-wrap: wrap; gap: 6px; }
+      .groupLabel { display: none; }
     }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
   <div id="hud">
-    <div id="topbar" class="panel">
-      <span class="chip">🌲 <span id="resWood">0</span></span>
-      <span class="chip">🪨 <span id="resStone">0</span></span>
-      <span class="chip">🪙 <span id="resGold">0</span></span>
-      <span class="chip">🌾 <span id="resFood">0</span></span>
-      <span class="divider">|</span>
-      <span class="chip">👶 <span id="countMinions">0</span></span>
-      <span class="chip">🗡️ <span id="countArmy">0</span></span>
-      <span class="divider">|</span>
-      <span id="ageLabel">🏛️ Village Age</span>
-      <span class="divider">|</span>
-      <span id="objective">🎯 Conquer Anga — destroy the Dark Totem</span>
-      <button id="mapBtn" title="Campaign Map">🗺️</button>
-    </div>
 
-    <div id="help" class="panel">
-      <b>⚔️ Legacy of Anga</b> — Level 1: Anga, land of Karna<br>
-      <kbd>Click</kbd>/<kbd>Drag</kbd> select · <kbd>Right-click</kbd> command<br>
-      <kbd>WASD</kbd> pan · <kbd>Q</kbd><kbd>E</kbd> rotate · <kbd>Wheel</kbd> zoom
+    <!-- ══════ TOP EDGE ══════ -->
+    <div id="topbar">
+      <div class="tbLeft">
+        <span class="crest">⚔️</span>
+        <div class="titleBlock">
+          <div class="gameTitle">Legacy of Anga</div>
+          <div class="levelSub">Level 1 · Anga, land of Karna</div>
+        </div>
+      </div>
+      <div class="tbCenter">
+        <div class="resStrip">
+          <span class="res"><i>🌲</i><b id="resWood">0</b></span>
+          <span class="res"><i>🪨</i><b id="resStone">0</b></span>
+          <span class="res"><i>🪙</i><b id="resGold">0</b></span>
+          <span class="res"><i>🌾</i><b id="resFood">0</b></span>
+          <span class="resSep"></span>
+          <span class="res pop"><i>👶</i><b id="countMinions">0</b></span>
+          <span class="res pop"><i>🗡️</i><b id="countArmy">0</b></span>
+        </div>
+      </div>
+      <div class="tbRight">
+        <span id="ageLabel" class="badge">🏛️ Village Age</span>
+        <span id="objective" class="badge">🎯 Destroy the Dark Totem</span>
+        <button id="helpBtn" class="iconBtn" title="Controls">❔</button>
+        <button id="mapBtn" class="iconBtn" title="Campaign Map">🗺️</button>
+      </div>
     </div>
 
     <div id="messages"></div>
-    <div id="selectionPanel" class="panel"></div>
 
-    <div id="buildPanel" class="panel">
-      <div class="selTitle">🏗️ Build</div>
-      <div id="buildGrid">
-        <button id="buildFarm" class="hudBtn">🌾 Farm <span class="cost">60🌲</span></button>
-        <button id="buildDock" class="hudBtn">🎣 Fishing Dock <span class="cost">80🌲 · near pond</span></button>
-        <button id="buildLibrary" class="hudBtn">📚 Library <span class="cost">120🌲 60🪨</span></button>
-        <button id="buildBarracks" class="hudBtn">⚔️ Barracks <span class="cost">100🌲 40🪨</span></button>
-        <button id="buildTemple" class="hudBtn">🛕 Temple <span class="cost">100🪨 80🪙</span></button>
-        <button id="buildStable" class="hudBtn">🐎 War Stable <span class="cost">120🌲 60🪙 <span id="stableLock">🔒 Kingdom Age</span></span></button>
-        <button id="buildWall" class="hudBtn">🧱 Stone Wall <span class="cost">20🪨</span></button>
-        <button id="buildGate" class="hudBtn">🚪 Gate <span class="cost">40🪨 20🌲</span></button>
-        <button id="buildTower" class="hudBtn">🗼 Watchtower <span class="cost">80🪨 40🌲</span></button>
+    <div id="helpCard" class="panel">
+      <div class="helpHead"><span>Controls</span><button id="helpClose" title="Hide">✕</button></div>
+      <kbd>Click</kbd> / <kbd>Drag</kbd> select · <kbd>Right-click</kbd> command<br>
+      <kbd>WASD</kbd> pan · <kbd>Q</kbd><kbd>E</kbd> rotate · <kbd>Wheel</kbd> zoom<br>
+      <kbd>1</kbd>–<kbd>9</kbd> build · <kbd>Esc</kbd> cancel<br>
+      <b>🧱 Drag walls</b> to raise a whole line — hold <kbd>Shift</kbd> to snap straight.
+    </div>
+
+    <div id="placeBanner"></div>
+
+    <!-- ══════ BOTTOM EDGE ══════ -->
+    <div id="cmdbar">
+      <div class="cmdZone">
+        <div class="zoneLabel">Selection</div>
+        <div id="selBody"></div>
+      </div>
+      <div class="cmdZone">
+        <div class="zoneLabel">Orders</div>
+        <div id="actionGrid"></div>
+      </div>
+      <div class="cmdZone">
+        <div class="zoneLabel">Build</div>
+        <div id="buildGroups"></div>
       </div>
     </div>
 
     <div id="selectbox"></div>
-
     <div id="campaignMap"></div>
 
     <div id="storyModal">
