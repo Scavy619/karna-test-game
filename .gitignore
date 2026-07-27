@@ -3,8 +3,3 @@ dist/
 *.log
 .DS_Store
 .env
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
